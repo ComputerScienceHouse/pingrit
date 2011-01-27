@@ -1,0 +1,219 @@
+#!/bin/bash
+# -----------------------------------------------------------------------------
+# IP Map Generator
+#
+# Author: Benjamin Russell
+# Contributor: Will Orr
+# Last Modified: 2010-12-13
+#
+# This script does a batch ping of all ip addresses within the last 2 octet. If
+# the IP responds to the ping, a record is made in a database. If nslookup
+# yields a name of the server, a record is made in a database.
+#
+# If ip is pingable, store as PING, then check to see if there's a web 
+# server
+# If ip is registered, but not pingable, store as REG
+# If ip is not registered and not pingable, store as DNE
+#
+# Usage: pingrit [options] start end
+#
+# start 	3rd octet to start pinging at
+#
+# end 		4rd octet to stop pinging at
+#
+# Options:
+#	-a	append the results to the database (ie: don't truncate)
+#
+# -----------------------------------------------------------------------------
+
+# PARSE COMMAND LINE ARGS ---
+
+# If we're appending, then shift the parameters
+if [[ $1 == "-a" ]]
+then
+	START_SUBNET=$2
+	END_SUBNET=$3
+else
+	START_SUBNET=$1
+	END_SUBNET=$2
+fi
+
+# Starting subnet
+echo $START_SUBNET
+
+if [[ $START_SUBNET -gt 254 ]]
+then
+	echo FUCK COCKS!
+fi
+
+if [[ $START_SUBNET -gt 254 || $START_SUBNET -lt 0 || $START_SUBNET == "" ]]
+then
+	START_SUBNET=0
+fi
+
+echo $START_SUBNET
+echo $END_SUBNET
+
+# Ending subnet
+if [[ $END_SUBNET -gt 254 || $START_SUBNET -lt $END_SUBNET ]]
+then
+	END_SUBNET=254
+elif [[ $END_SUBNET == "" ]]
+then
+	END_SUBNET=$START_SUBNET
+else
+	END_SUBNET=254
+fi
+
+
+# VARIABLES -----------------
+
+# Total machines tried
+TOTAL_TRIED=0
+
+# Total machines found
+TOTAL_FOUND=0
+
+# The base of the IP (ex: 129.21. in 129.21.254.254)
+IP_BASE="129.21."
+
+# COMMANDS ------------------
+
+# Command to execute to see if the IP is pingable
+PING_MACHINE="ping -c 1 -w 1"
+
+# Command to execute to see if a machine has been found
+FIND_MACHINE="grep -c from"
+
+# The value that signifies a machine has been found
+MACHINE_FOUND="1"
+
+# Command to execute to find the name of the hostname
+FIND_NAME="nslookup"
+
+# Command to execute to access mysql
+MYSQL_USER="username"
+MYSQL_PASS="password"
+MYSQL_DB="database"
+
+# TEXT FORMATTING -----------
+
+# Color for found machine
+txtFOUND=$(tput bold)$(tput setaf 2)
+
+# Color for not found machine
+txtNOTFOUND=$(tput setaf 1)
+
+# Color for registered, but not found machine
+txtREG=$(tput setaf 3)
+
+# Reset the text
+txtRESET=$(tput sgr0)
+
+# CODE! ---------------------
+
+# Truncate the table to clear out existing entries
+if [ "$1" != "-a" ]
+then
+	mysql -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e"TRUNCATE ips"
+fi
+
+# Loop over the first octet
+for OCTET1 in `seq $START_SUBNET $END_SUBNET`;
+do
+	# Loop over the second octet
+	for OCTET2 in `seq 1 254`;
+	do
+		# Construct the ip we're pinging
+		IP_ADDR=$IP_BASE$OCTET1"."$OCTET2
+
+		# Output which ip we're checking		
+		echo -n "Checking: $IP_ADDR "
+
+		# Try to ping it
+		PING_RESULT=`$PING_MACHINE $IP_ADDR | $FIND_MACHINE`
+		
+		# If we get a 1, then there's a machine on the other end
+		if [[ $PING_RESULT == $MACHINE_FOUND ]]
+		then
+			# A machine has been found!			
+			echo -e -n "\t${txtFOUND}Machine Found${txtRESET}"
+			let TOTAL_FOUND=$TOTAL_FOUND+1
+
+			# Figure out the name of it
+			MACHINE_NAME=`$FIND_NAME $IP_ADDR | grep -m 1 "name ="`
+			MACHINE_NAME=${MACHINE_NAME#*= }
+			
+			# Pattern matching for rit.edu in x.rit.edu
+			ROOT_NAME=${MACHINE_NAME#*.}
+			ROOT_NAME=${ROOT_NAME%.}
+
+			# Pattern matching for x in x.rit.edu
+			HOST_NAME=${MACHINE_NAME%%.*.}
+			echo -e "\t$HOST_NAME.$ROOT_NAME"
+
+			# Check if there's a web server there
+			# Actually, we're grabbing the HTTP response code
+			WEB_SERVER=`wget -T 1 -t 1 $HOST_NAME.$ROOT_NAME -O /dev/null --spider -o /dev/stdout | grep HTTP`
+			WEB_SERVER=${WEB_SERVER##*. }
+			WEB_SERVER=${WEB_SERVER% *}
+			WEB_SERVER=${WEB_SERVER% *}	# remove 2nd word (eg: 301 Moved Permanently)
+			WEB_SERVER=${WEB_SERVER% *}	# remove 3rd word (eg: 418 I'm a teapot)
+			# If there isn't anything, pad it with 0
+			if [[ "$WEB_SERVER" = "" ]]
+			then
+				WEB_SERVER=0
+			fi
+			
+			# Build the query
+			QUERY="INSERT INTO ips (\`ip_address\`, \`thirdo\`, \`fourtho\`, \`exists\`, \`hostname\`, \`rootname\`, \`web\`) \
+			VALUES ('$IP_ADDR', '$OCTET1', '$OCTET2', 'PING', '$HOST_NAME', '$ROOT_NAME', $WEB_SERVER);"
+			
+		else			
+			# Let's check to see if a machine is registered
+			MACHINE_NAME=`$FIND_NAME $IP_ADDR | grep "name ="`
+			if [[ "$MACHINE_NAME" != "" ]]
+			then
+				# Registered, but not pinging
+				echo -e -n "\t${txtREG}Registered${txtRESET}"
+
+				# Figure out the name of it
+				MACHINE_NAME=`$FIND_NAME $IP_ADDR | grep -m 1 "name ="`
+				MACHINE_NAME=${MACHINE_NAME#*= }
+			
+				# Pattern matching for rit.edu in x.rit.edu
+				ROOT_NAME=${MACHINE_NAME#*.}
+				ROOT_NAME=${ROOT_NAME%.}
+
+				# Pattern matching for x in x.rit.edu
+				HOST_NAME=${MACHINE_NAME%%.*.}
+				echo -e "\t$HOST_NAME.$ROOT_NAME"
+
+				# Build the query
+				QUERY="INSERT INTO ips (\`ip_address\`, \`thirdo\`, \`fourtho\`, \`exists\`, \`hostname\`, \`rootname\`) \
+				VALUES ('$IP_ADDR', '$OCTET1', '$OCTET2', 'REG', '$HOST_NAME', '$ROOT_NAME');"
+
+			else
+				# No Machines Here
+				echo -e "\t${txtNOTFOUND}No Machine${txtRESET}"
+			
+				# Build the query
+				QUERY="INSERT INTO ips (\`ip_address\`, \`thirdo\`, \`fourtho\`, \`exists\`) \
+				VALUES ('$IP_ADDR', '$OCTET1', '$OCTET2', 'DNE');"
+			fi
+		fi
+
+		# Send the query
+		mysql -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e"$QUERY"
+
+
+		# Update the number of machines tried
+		let TOTAL_TRIED=$TOTAL_TRIED+1
+		
+	done
+done
+
+# Output statistics
+echo "--------------------------"
+echo " Total Machines Tried: $TOTAL_TRIED"
+echo " Total Machines Found: $TOTAL_FOUND"

@@ -1,0 +1,37 @@
+body {
+	text-align:center;
+}
+h1 {
+	margin-bottom: 5px;
+}
+table {
+	width:100%;
+}
+td {
+	height: 5px;
+	width: 10px;
+}
+ul li{
+	text-align:left;
+}
+
+
+.headerfourth {
+	font-weight:bold;
+}
+.headerthird {
+	font-weight:bold;
+}			
+
+.exists {
+	background-color:green;
+}
+.registered {
+	background-color:orange;
+}
+.doesnotexist {
+	background-color:white;
+}
+.nodata {
+	background-color:grey;
+}
