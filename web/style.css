@@ -1,5 +1,6 @@
 body {
 	text-align:center;
+	margin:2px;
 }
 h1 {
 	margin-bottom: 5px;
@@ -23,15 +24,41 @@ ul li{
 	font-weight:bold;
 }			
 
-.exists {
+/* Map specific styling */
+#mapContainer {
+	position:relative;
+	float:center;
+	width:1016px;
+	height:10px;
+}
+
+#mapContainer div {
+	position:relative;
+	height:4px;
+	width:4px;
+	float:left;
+	margin:0px;
+}
+
+#mapContainer div:hover {
+	border: solid 1px black;
+	height:2px;
+	width:2px;
+	margin:0px;
+}
+
+.ping {
 	background-color:green;
 }
-.registered {
+.reg {
 	background-color:orange;
 }
-.doesnotexist {
+.dne {
 	background-color:white;
 }
-.nodata {
-	background-color:grey;
+.urhere {
+	border:solid 1px red;
+	height:2px;
+	width:2px;
+	margin:0px
 }

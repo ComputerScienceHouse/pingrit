@@ -118,7 +118,7 @@ fi
 for OCTET1 in `seq $START_SUBNET $END_SUBNET`;
 do
 	# Loop over the second octet
-	for OCTET2 in `seq 0 254`;
+	for OCTET2 in `seq 1 254`;
 	do
 		# Construct the ip we're pinging
 		IP_ADDR=$IP_BASE$OCTET1"."$OCTET2
@@ -141,20 +141,20 @@ do
 			MACHINE_NAME=${MACHINE_NAME#*= }
 			
 			# Pattern matching for rit.edu in x.rit.edu
-			ROOT_NAME=${MACHINE_NAME#*.}
-			ROOT_NAME=${ROOT_NAME%.}
+			DOMAIN_NAME=${MACHINE_NAME#*.}
+			DOMAIN_NAME=${DOMAIN_NAME%.}
 
 			# Pattern matching for x in x.rit.edu
 			HOST_NAME=${MACHINE_NAME%%.*.}
-			if [[ $HOST_NAME != "" && $ROOT_NAME != "" ]]
+			if [[ $HOST_NAME != "" && $DOMAIN_NAME != "" ]]
 			then
-				echo -e "\t$HOST_NAME.$ROOT_NAME"
+				echo -e "\t$HOST_NAME.$DOMAIN_NAME"
 			else
 				echo
 			fi
 
 			# Grab the HTTP response code
-			WEB_SERVER=`curl -I -s -m 1 $HOST_NAME.$ROOT_NAME | egrep 'HTTP.{1,4}\s+([0-9]{1,3})\s+.*'`
+			WEB_SERVER=`curl -I -s -m 1 $HOST_NAME.$DOMAIN_NAME | egrep 'HTTP.{1,4}\s+([0-9]{1,3})\s+.*'`
 			WEB_SERVER=`echo $WEB_SERVER | cut --delimiter=" " -f2`
 			# If we don't have anything, replace with 0
 			if [[ $WEB_SERVER == "" ]]
@@ -163,8 +163,8 @@ do
 			fi
 
 			# Build the query
-			QUERY="INSERT INTO ips (\`ip_address\`, \`thirdo\`, \`fourtho\`, \`exists\`, \`hostname\`, \`rootname\`, \`web\`) \
-			VALUES ('$IP_ADDR', '$OCTET1', '$OCTET2', 'PING', '$HOST_NAME', '$ROOT_NAME', $WEB_SERVER);"
+			QUERY="INSERT INTO ips (\`thirdo\`, \`fourtho\`, \`exists\`, \`hostname\`, \`domain\`, \`web\`) \
+			VALUES ('$OCTET1', '$OCTET2', 'PING', '$HOST_NAME', '$DOMAIN_NAME', $WEB_SERVER);"
 			
 		else			
 			# Let's check to see if a machine is registered
@@ -179,29 +179,29 @@ do
 				MACHINE_NAME=${MACHINE_NAME#*= }
 			
 				# Pattern matching for rit.edu in x.rit.edu
-				ROOT_NAME=${MACHINE_NAME#*.}
-				ROOT_NAME=${ROOT_NAME%.}
+				DOMAIN_NAME=${MACHINE_NAME#*.}
+				DOMAIN_NAME=${DOMAIN_NAME%.}
 
 				# Pattern matching for x in x.rit.edu
 				HOST_NAME=${MACHINE_NAME%%.*.}
-				if [[ $HOST_NAME != "" && $ROOT_NAME != "" ]]
+				if [[ $HOST_NAME != "" && $DOMAIN_NAME != "" ]]
 				then
-					echo -e "\t$HOST_NAME.$ROOT_NAME"
+					echo -e "\t$HOST_NAME.$DOMAIN_NAME"
 				else
 					echo
 				fi
 
 				# Build the query
-				QUERY="INSERT INTO ips (\`ip_address\`, \`thirdo\`, \`fourtho\`, \`exists\`, \`hostname\`, \`rootname\`) \
-				VALUES ('$IP_ADDR', '$OCTET1', '$OCTET2', 'REG', '$HOST_NAME', '$ROOT_NAME');"
+				QUERY="INSERT INTO ips (\`thirdo\`, \`fourtho\`, \`exists\`, \`hostname\`, \`domain\`) \
+				VALUES ('$OCTET1', '$OCTET2', 'REG', '$HOST_NAME', '$DOMAIN_NAME');"
 
 			else
 				# No Machines Here
 				echo -e "\t${txtNOTFOUND}No Machine${txtRESET}"
 			
 				# Build the query
-				QUERY="INSERT INTO ips (\`ip_address\`, \`thirdo\`, \`fourtho\`, \`exists\`) \
-				VALUES ('$IP_ADDR', '$OCTET1', '$OCTET2', 'DNE');"
+				QUERY="INSERT INTO ips (\`thirdo\`, \`fourtho\`, \`exists\`) \
+				VALUES ('$OCTET1', '$OCTET2', 'DNE');"
 			fi
 		fi
 
