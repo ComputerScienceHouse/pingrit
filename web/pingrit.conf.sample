@@ -1,0 +1,25 @@
+# ---------------------------
+# PingRIT Configuration File
+# ---------------------------
+
+#########
+# This is a sample configuration file!
+#   You must change the values to match your database/locale settings!
+########
+
+# Database Credentials
+username|myusername
+password|mypassword
+
+# Location of the database server
+# A lot of times this is localhost, unless you are connecting to a remote db
+dbLocation|http://address.to/my/database
+
+# Name of the database containing the ips and stats tables
+database|mypingritdatabase
+
+# Home ip address information
+# ie: the first two octets you are pinging
+# eg: If I am pinging 192.168, then my values would be:
+octet1|192
+octet2|168

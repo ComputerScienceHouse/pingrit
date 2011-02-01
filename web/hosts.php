@@ -1,15 +1,65 @@
 <?php
+// OPEN THE PASSWORDS FILE ----------------------
+if($file_handle = fopen("pingrit.conf", "r")) {
+	// Read the lines
+	while(($buffer = fgets($file_handle)) !== false) {
+		// Skip commented lines
+		if($buffer[0] == "#") { continue; }
+
+		$buffer_exploded = explode("|", $buffer);
+		if($buffer_exploded[0] == "password") {
+			$password = rtrim($buffer_exploded[1]);
+		}
+		if($buffer_exploded[0] == "username") {
+			$username = rtrim($buffer_exploded[1]);
+		}
+		if($buffer_exploded[0] == "dbLocation") {
+			$dbLocation = rtrim($buffer_exploded[1]);
+		}
+		if($buffer_exploded[0] == "database") {
+			$database = rtrim($buffer_exploded[1]);
+		}
+		if($buffer_exploded[0] == "octet1") {
+			$octet1 = rtrim($buffer_exploded[1]);
+		}
+		if($buffer_exploded[0] == "octet2") {
+			$octet2 = rtrim($buffer_exploded[1]);
+		}
+	}
+} else {
+	die("Could not open configuration file.");
+}
+
+// Is it set up correctly
+if(!isset($password) || $password == "") {
+	die("Database credentials not defined");
+}
+if(!isset($username) || $username == "") {
+	die("Database credentials not defined");
+}
+if(!isset($dbLocation) || $dbLocation == "") {
+	die("Database location not defined");
+}
+if(!isset($database) || $database == "") {
+	die("Database not defined");
+}
+if(!isset($octet1) || $octet1 == "") {
+	die("Home octet1 not defined");
+}
+if(!isset($octet2) || $octet2 == "") {
+	die("Home octet2 not defined");
+}
+
 // Grab the start time of the script
 $timeStart = microtime(true);
 
 // Connect to mysql
-$handle = mysql_connect("localhost", "pingrit", "pingrit1") 
+$handle = mysql_connect($dbLocation, $username, $password) 
     or die("Fatal Error: Could not connect to database.<br />\n" 
     . mysql_error());
-mysql_select_db("pingrit") or die("Fatal Error: Could not select DB.<br />\n"
+mysql_select_db($database) or die("Fatal Error: Could not select DB.<br />\n"
     . mysql_error());
 ?>
-
 <html>
 	<head>
 		<title>Hostnames - PingRIT Project</title>
@@ -65,7 +115,7 @@ mysql_select_db("pingrit") or die("Fatal Error: Could not select DB.<br />\n"
 		
 		// Calculate time taken
 		$timeTaken = microtime(true) - $timeStart;
-		echo("<h4>Time Elapsed: {$timeTaken} ms</h4>");
+		echo("<h4>Time Elapsed: ".round($timeTaken,4)."s</h4>");
 		?>
 	</body>
 </html>
