@@ -4,7 +4,7 @@
 #
 # Author: Benjamin Russell
 # Contributor: Will Orr, Ryan Brown
-# Last Modified: 2011-01-29
+# Last Modified: 2011-02-01
 #
 # This script does a batch ping of all ip addresses within the last 2 octet. If
 # the IP responds to the ping, a record is made in a database. If nslookup
@@ -25,6 +25,48 @@
 #	-a	append the results to the database (ie: don't truncate)
 #
 # -----------------------------------------------------------------------------
+
+# USER MODIFIABLE VARIABLES -
+
+# The base of the IP (ex: 192.168. in 192.168.254.254)
+IP_BASE="129.21."
+
+# MySQL Credentials
+MYSQL_USER="myusername"
+MYSQL_PASS="mypassword"
+MYSQL_DB="pingritdatabase"
+
+#########
+# DO NOT MODIFY BELOW HERE
+#########
+
+# COMMANDS ------------------
+
+# Command to execute to see if the IP is pingable
+PING_MACHINE="ping -c 1 -w 1"
+
+# Command to execute to see if a machine has been found
+FIND_MACHINE="grep -c from"
+
+# The value that signifies a machine has been found
+MACHINE_FOUND="1"
+
+# Command to execute to find the name of the hostname
+FIND_NAME="nslookup"
+
+# TEXT FORMATTING -----------
+
+# Color for found machine
+txtFOUND=$(tput bold)$(tput setaf 2)
+
+# Color for not found machine
+txtNOTFOUND=$(tput setaf 1)
+
+# Color for registered, but not found machine
+txtREG=$(tput setaf 3)
+
+# Reset the text
+txtRESET=$(tput sgr0)
 
 # PARSE COMMAND LINE ARGS ---
 
@@ -62,51 +104,14 @@ echo -e "Subnet to start:\t $START_SUBNET"
 echo -e "Subnet to end:  \t $END_SUBNET"
 echo "--------------------------"
 
-# VARIABLES -----------------
-
-# Total machines tried
-TOTAL_TRIED=0
-
-# Total machines found
-TOTAL_FOUND=0
-
-# The base of the IP (ex: 129.21. in 129.21.254.254)
-IP_BASE="129.21."
-
-# COMMANDS ------------------
-
-# Command to execute to see if the IP is pingable
-PING_MACHINE="ping -c 1 -w 1"
-
-# Command to execute to see if a machine has been found
-FIND_MACHINE="grep -c from"
-
-# The value that signifies a machine has been found
-MACHINE_FOUND="1"
-
-# Command to execute to find the name of the hostname
-FIND_NAME="nslookup"
-
-# Command to execute to access mysql
-MYSQL_USER="pingrit"
-MYSQL_PASS="pingrit1"
-MYSQL_DB="pingrit"
-
-# TEXT FORMATTING -----------
-
-# Color for found machine
-txtFOUND=$(tput bold)$(tput setaf 2)
-
-# Color for not found machine
-txtNOTFOUND=$(tput setaf 1)
-
-# Color for registered, but not found machine
-txtREG=$(tput setaf 3)
-
-# Reset the text
-txtRESET=$(tput sgr0)
-
 # CODE! ---------------------
+
+# Stat variables
+COUNT_TRIED=0
+COUNT_PING=0
+COUNT_REG=0
+COUNT_DNE=0
+COUNT_WEB=0
 
 # Truncate the table to clear out existing entries
 if [ "$1" != "-a" ]
@@ -134,7 +139,7 @@ do
 		then
 			# A machine has been found!			
 			echo -e -n "\t${txtFOUND}Machine Found${txtRESET}"
-			let TOTAL_FOUND=$TOTAL_FOUND+1
+			let COUNT_PING=$COUNT_PING+1
 
 			# Figure out the name of it
 			MACHINE_NAME=`$FIND_NAME $IP_ADDR | grep -m 1 "name ="`
@@ -160,6 +165,8 @@ do
 			if [[ $WEB_SERVER == "" ]]
 			then
 				WEB_SERVER=0
+			else
+				let COUNT_WEB=$COUNT_WEB+1
 			fi
 
 			# Build the query
@@ -187,7 +194,9 @@ do
 				if [[ $HOST_NAME != "" && $DOMAIN_NAME != "" ]]
 				then
 					echo -e "\t$HOST_NAME.$DOMAIN_NAME"
+					let COUNT_REG=$COUNT_REG+1
 				else
+					# New Line
 					echo
 				fi
 
@@ -202,6 +211,7 @@ do
 				# Build the query
 				QUERY="INSERT INTO ips (\`thirdo\`, \`fourtho\`, \`exists\`) \
 				VALUES ('$OCTET1', '$OCTET2', 'DNE');"
+				let COUNT_DNE=$COUNT_DNE+1
 			fi
 		fi
 
@@ -210,12 +220,28 @@ do
 		#echo $QUERY
 
 		# Update the number of machines tried
-		let TOTAL_TRIED=$TOTAL_TRIED+1
+		let COUNT_TRIED=$COUNT_TRIED+1
 		
 	done
 done
 
+# Are we appending? If so, update the stats, don't insert a new line
+if [ "$1" != "-a" ]
+then
+	mysql -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "INSERT INTO stats (\`date\`, \`tried\`, \`ping\`, \`reg\`, \`dne\`, \`web\`) \
+	VALUES  ( NOW(), $COUNT_TRIED, $COUNT_PING, $COUNT_REG, $COUNT_DNE, $COUNT_WEB);"
+else
+	mysql -u $MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "UPDATE stats SET \
+	\`date\`=NOW(), \
+	\`tried\`=\`tried\`+$COUNT_TRIED, \
+	\`ping\`=\`ping\`+$COUNT_PING, \
+	\`reg\`=\`reg\`+$COUNT_REG, \
+	\`dne\`=\`dne\`+$COUNT_DNE, \
+	\`web\`=\`web\`+$COUNT_WEB \
+	ORDER BY date DESC LIMIT 1"
+fi
+
 # Output statistics
 echo "--------------------------"
-echo " Total Machines Tried: $TOTAL_TRIED"
-echo " Total Machines Found: $TOTAL_FOUND"
+echo " Total IPs Tried: $COUNT_TRIED"
+echo " Total IPs Found: $COUNT_PING"

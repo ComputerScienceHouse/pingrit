@@ -1,0 +1,93 @@
+NAME -
+     pingrit - the PingRIT Project data mining script
+
+SYNOPSIS -
+     pingrit [-a] start_subnet [end_subnet]
+
+DESCRIPTION -
+     The PingRIT Project data mining script performs a ping of all IPv4
+     addresses within the last two octets of the IPv4 address. The script
+     begins by pinging the address with one packet, it will time out after one
+     second. If a response is recieved within the time, the address is sent 
+     through cURL to retrieve the potential web server headers. The HTTP 
+     response code is stored, or zero is stored if no code is sent. 
+     Regardless of a ping response, the script performs a nslookup on the 
+     address to determine if the address is registered in any name servers. All
+     this gathered information is stored and sent to a MySQL database. This 
+     database is then accessed by the web portion of the PingRIT Project.
+
+     The command line syntax is as follows:
+     
+     -a     runs the script in append mode, ignoring the command that empties
+            the table of ip address information.
+            Useful for running the script in blocks.
+
+     start_subnet     the subnet at which to begin checking
+                      x in 192.168.x.y
+
+     end_subnet       the subnet at which to stop checking
+                      If not provided, is set to 254
+                      x in 192.168.x.y
+
+     Examples:
+
+     pingrit 49
+            Analyzes all ip addresses from x.y.49.1 to x.y.49.254
+            Also empties the database before performing
+
+     pingrit -a 49
+            Adds records to the database for the same address range as in the
+            previous example
+
+     pingrit 49 60
+            Analyzes all ip addresses from x.y.49.1 to x.y.60.254
+
+
+INSTALLATION-
+     Requirements for running the script:
+          - MySQL database on local machine (see database setup)
+          - grep with egrep support
+          - ping 
+          - cURL
+          - nslookup
+
+    Requirements for the web display:
+          - MySQL database
+          - PHP5+
+    
+    Database Setup:
+        Before running the script, a database must be set up to house the data
+        that the script will collect. Create a database in MySQL and run the
+        SQL code in the included install.sql file. This will generate the two
+        tables that store both the information for the ip addresses and the 
+        statistics. It is also a good idea to set up a user with only access
+        to the database you set up for PingRIT. This user at the bare minimum
+        needs access to SELECT, INSERT, UPDATE, and DELETE from the database.
+
+    Script Setup:
+        The script must be correctly modified to enable storage of the info in
+        the database. In 'pingrit' there is are four variables that must be set
+        to fit your set up.
+        IP_BASE    -    The base of all the IP addresses. It must end with a .
+                        Ex: 192.168. in 192.168.125.1 
+        MYSQL_USER   -  The username that has access to your PingRIT database.
+        MYSQL_PASS   -  Password for that database
+        MYSQL_DB    -   The database that will store the information
+    
+    Web Setup:
+        Similar to the script set up, the web portion (although optional) needs
+        to be set up before launching. Upload the site files to your choice of
+        web space. Create a file called pingrit.conf in the folder of the other
+        web files. An example of the fields required is provided as the
+        pingrit.conf.sample file. 
+
+HISTORY -
+     PingRIT was a project developed out of boredom and then submitted to
+     Computer Science House at Rochester Institute of Technology as a yearly
+     major project. Its status as such has yet to be determined.
+
+AUTHOR -
+     Benjamin Russell (benrr101@csh.rit.edu)
+
+     Contributors:
+     Will Orr, Ryan Brown, Grant Kurtz (albeit in small doses)
